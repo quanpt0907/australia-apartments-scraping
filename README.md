@@ -13,7 +13,6 @@ This small project scrapes apartment data from ( https://www.apartments.com.au/ 
 ## 📁 Project Structure
 - `scrape.py`: Contains core scraping logic used by all location files
 - `adelaide.py`, `canberra.py`, `perth.py`: Use `scrape.py` to extract data for each location individually
-- `apartments.com.xlsx`: Final output file with 3 sheets, one for each city
 
 ## ⚙️ How to Use
 
@@ -38,3 +37,6 @@ The scripts will open a Chrome browser to perform scraping (headless mode is not
 Runtime: Each script can take from 30 minutes to 1.5 hours due to the large amount of data.
 
 Headless mode not supported: Running in headless mode results in incomplete data. Therefore, Chrome windows will visibly open during execution, which may be inconvenient.
+
+> 🔒 The Excel output file is available upon request and will be shared privately to avoid unnecessary file size and comply with site terms.
+
