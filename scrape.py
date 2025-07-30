@@ -9,10 +9,6 @@ from concurrent.futures import ThreadPoolExecutor
 import pandas as pd
 from time import sleep
 
-# Lỗi Builder và Partner (done)
-# Developer bị thiếu vài chỗ
-# Chưa ấn xem thêm -> chỉ có 42 cái (done)
-
 DEBUG = True
 def log(msg):
     if DEBUG:
@@ -20,17 +16,17 @@ def log(msg):
 
 def create_driver():
     options = Options()
-    #options.add_argument("--headless=new")  # hoặc bỏ nếu muốn thấy trình duyệt
+    #options.add_argument("--headless=new")  headless mode: Turn off the browser
     options.add_argument("--disable-gpu")
     options.add_argument("--no-sandbox")
     options.add_argument("--log-level=3")
-    options.add_argument("--log-level=3")  # Chặn mấy dòng chen vào giữa log ngoại trừ ERROR
-    options.add_experimental_option('excludeSwitches', ['enable-logging'])  # Ẩn enable-logging
+    options.add_argument("--log-level=3")  # Block the system logs
+    options.add_experimental_option('excludeSwitches', ['enable-logging'])  
     options.add_argument(
     "--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36" 
     )
-    #options.add_experimental_option("detach", True)  # Giữ cửa sổ mở sau khi script chạy
-    service = Service(log_path="NUL")  # nếu bạn có chromedriver trong PATH
+    #options.add_experimental_option("detach", True)  
+    service = Service(log_path="NUL")  
     driver = webdriver.Chrome(service=service, options=options)
     driver.maximize_window()
     return driver
@@ -57,7 +53,7 @@ def scrape_project(link, num):
             project["Development name"] = dev_name
             log(f"-> Scraped Project Name: {dev_name}")
         except:
-            log(f"[{num}] Không lấy được Development name")
+            log(f"[{num}] Cannot get Development name")
         
         # ---------------------------------- Address -----------------------------------
         try:
@@ -65,7 +61,7 @@ def scrape_project(link, num):
             project["Address"] = address
             log(f"-> Scraped Address")
         except:
-            log(f"[{num}] Không lấy được Address")
+            log(f"[{num}] Cannot get the address or do not have address")
         
         # ----------------------------------- Developer ----------------------------------
         try:
@@ -76,7 +72,7 @@ def scrape_project(link, num):
             log(f"-> Scraped Developer")
         except:
             project["Developer"] = "None"
-            log(f"[{num}] Không lấy được Developer")
+            log(f"[{num}] Cannot get the Developer or do not have Developer")
         
         # ------------------------------- Builder / Partner -----------------------------------
         try:
@@ -121,7 +117,7 @@ def scrape_project(link, num):
                 if not has_builder:
                     project["Builder"] = "None"
         except Exception as e:
-            log(f"[{num}] Lỗi khi lấy Builder/Partner")
+            log(f"[{num}] Cannot get the Builder/Partner or do not have Builder/Partner")
             project["Builder"] = "None"
             project["Partner"] = "None"
 
@@ -137,17 +133,17 @@ def scrape_project(link, num):
             project["Project commencement"] = project_status
             log(f"-> Scraped Project Status")
         except:
-            log(f"[{num}] Không lấy được Project commencement")
+            log(f"[{num}] Cannot get Project commencement")
         
-        log(f"[{num}] => Scraped thành công: {project['Development name']}")
+        log(f"[{num}] => Scraped successfully: {project['Development name']}")
     except Exception as e:
-        log(f"[{num}] Lỗi scrape project: {e}")
+        log(f"[{num}] Cannot scrape project: {e}")
     finally:
         driver.quit()
     return project
 
 def scrape_all_projects(base_url: str, sheet_name = str):
-    # Tạo driver chính để lấy danh sách links
+    # Main driver
     main_driver = create_driver()
     main_wait = WebDriverWait(main_driver, 10)
     main_driver.get(base_url)
@@ -159,7 +155,7 @@ def scrape_all_projects(base_url: str, sheet_name = str):
             EC.element_to_be_clickable((By.XPATH, "//a[contains(@href, '/page/')]"))
         )
     
-        # Click load thêm
+        # Click show more
         while True:
             try:
                 show_more = main_wait.until(
@@ -174,7 +170,7 @@ def scrape_all_projects(base_url: str, sheet_name = str):
                 break
             
     except Exception as e:
-        log(f"Không tìm thấy hoặc không thể click show more")
+        log(f"Couldn't find show more button")
 
     project_boxes = main_wait.until(
         EC.presence_of_all_elements_located(
@@ -188,15 +184,14 @@ def scrape_all_projects(base_url: str, sheet_name = str):
             href = a_tag.get_attribute("href")
             if href:
                 hrefs.append(href)
-                #break
         except:
             continue
 
     main_driver.quit()
 
-    log(f"Tổng số dự án cần scrape: {len(hrefs)}")
+    log(f"Projects need scraping: {len(hrefs)}")
 
-    # Chạy multi-thread
+    # multi-thread to increase speed
     projects = {}
     with ThreadPoolExecutor(max_workers=3) as executor:
         results = executor.map(scrape_project, hrefs, range(1, len(hrefs)+1))
@@ -204,13 +199,13 @@ def scrape_all_projects(base_url: str, sheet_name = str):
             if proj and proj["Development name"]:
                 projects[proj["Development name"]] = proj
 
-    # Lưu excel
+    # Save to excel
     df = pd.DataFrame.from_dict(projects, orient="index")
     df["Partner"] = df["Partner"].apply(lambda x: ", ".join(x) if isinstance(x, list) and x else "None")
-    # Ghi vào file Excel (append sheet)
+    # Append sheet to Excel 
     with pd.ExcelWriter("apartments.com.xlsx", engine="openpyxl", mode="a", if_sheet_exists="replace") as writer:
         df.to_excel(writer, sheet_name=sheet_name, index=False)
-    log(f"Đã lưu sheet {sheet_name} vào apartments.com.xlsx")
+    log(f"Saved sheet {sheet_name} to apartments.com.xlsx")
 
 if __name__ == "__main__":
    scrape_all_projects()
